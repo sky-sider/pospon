@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#251c43">
 <meta name="description" content="今夜もヘンテコな手紙が届く、かわいくて少し不思議な仕分けパズル。オフラインで遊べます。">
-<title>ポスぽん！ v0.3.2｜POSUPON!</title>
+<title>ポスぽん！ v0.4.0｜POSUPON!</title>
 <style>
 :root{
  --ink:#2a2145;--ink2:#4b3966;--night:#221a3d;--pink:#ff67aa;--lime:#b9f36b;
@@ -395,6 +395,34 @@ button:focus-visible,input:focus-visible{outline-color:#f7d15b}
 .art-skull{background-image:var(--skull-art)}
 .notice .notice-icon.art-bat,.notice .notice-icon.art-skull{width:42px;height:42px;flex:0 0 42px;filter:drop-shadow(0 2px 0 rgba(56,39,77,.18))}
 @media(max-width:350px){.notice .notice-icon.art-bat,.notice .notice-icon.art-skull{width:36px;height:36px;flex-basis:36px}}
+
+/* v0.4.0 — independent classic/bomb mode and optional postmark-bomb controls. */
+.mode-banner{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff6e5;color:#503d61;border:2px solid #6d5275;border-radius:13px;margin:-5px 1px 13px;padding:8px 10px;box-shadow:0 3px 0 #2d203d;font-size:12px;font-weight:900}
+.mode-banner strong{display:block;font-size:14px;color:#332544}
+.mode-banner button{background:#d5e8f5;border:2px solid #594168;border-radius:10px;font-size:12px;font-weight:1000;padding:6px 12px;min-height:36px}
+.bomb-panel{background:linear-gradient(120deg,#fff2bf,#fff8e7);border:3px solid #4e3963;border-radius:18px;padding:13px 12px;margin:-1px 0 15px;box-shadow:0 5px 0 #21192f}
+.bomb-panel[hidden]{display:none!important}
+.bomb-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:15px;font-weight:1000}
+.bomb-count{background:#fffdf6;border:2px solid #6b5075;border-radius:30px;padding:5px 10px;white-space:nowrap;font-size:13px}
+.bomb-desc{color:#65536c;font-size:12px;margin:0 0 10px;line-height:1.5}
+.bomb-action{border:3px solid #493553;background:#f2a7a3;border-radius:14px;display:block;width:100%;min-height:48px;padding:10px 9px;font-size:15px;font-weight:1000;box-shadow:0 3px 0 #493553}
+.bomb-action.active{background:#ffdc7e}
+.bomb-action:disabled{opacity:.5}
+.bomb-cancel{display:block;margin:9px auto 0;border:2px solid #5d476a;border-radius:11px;background:#fff9ed;padding:7px 14px;font-weight:1000}
+.bomb-cancel[hidden]{display:none!important}
+.envelope.bomb-candidate{outline:4px solid #edbe50;outline-offset:0;box-shadow:0 0 0 3px #693e80,0 4px 0 #745e6c;animation:bomb-pulse 1s ease-in-out infinite alternate}
+@keyframes bomb-pulse{from{filter:brightness(1)}to{filter:brightness(1.18)}}
+@media(prefers-reduced-motion:reduce){.envelope.bomb-candidate{animation:none}}
+.bomb-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:15px 0 10px}
+.bomb-choices button{min-height:66px;border:2.5px solid #51405e;border-radius:13px;background:var(--mail-bg);font-size:29px;font-weight:1000;box-shadow:0 3px 0 #68526d}
+.bomb-choices button:disabled{opacity:.4}
+.mode-choice{width:100%;text-align:left;border:2.5px solid #4d3b62;border-radius:15px;background:#d4e8f4;box-shadow:0 4px 0 #4d3b62;padding:13px 12px;margin:9px 0;min-height:74px;display:block;color:#2a2145}
+.mode-choice.bomb-choice{background:#ffdf98}
+.mode-choice strong{font-size:17px;display:block;margin-bottom:2px}
+.mode-choice small{font-size:12px;line-height:1.5;display:block}
+.mode-choice:disabled{opacity:.65}
+.dialog .mode-note{font-size:12px;color:#5f516e;margin:5px 0 10px;line-height:1.6}
+@media(max-width:354px){.mode-banner{font-size:11px}.bomb-panel{padding:10px}.bomb-action{font-size:13px}}
 </style>
 </head>
 <body>
@@ -410,6 +438,7 @@ button:focus-visible,input:focus-visible{outline-color:#f7d15b}
    <span class="mascot-sway" aria-hidden="true"></span>
   </div>
  </header>
+ <div class="mode-banner"><span><strong id="modeName">クラシック</strong><span id="modeDetail">10通で終了</span></span><button type="button" id="modeBtn">モード変更</button></div>
  <div class="score-strip" aria-live="polite">
   <div class="score-chip"><small><span class="art-icon art-star" aria-hidden="true"></span> SCORE</small><strong id="score">0</strong></div>
   <div class="score-chip"><small><span class="art-icon art-star" aria-hidden="true"></span> BEST</small><strong id="best">0</strong></div>
@@ -419,13 +448,19 @@ button:focus-visible,input:focus-visible{outline-color:#f7d15b}
   <section class="panel board-panel" aria-labelledby="boardHeading">
    <div class="panel-header"><div class="panel-title" id="boardHeading"><span class="tiny art-icon art-letter" aria-hidden="true"></span> 届いた手紙</div><div id="counter" class="counter">3 / 9 通</div></div>
    <div class="slot-rack"><div id="mailGrid" class="mail-grid" aria-label="届いた手紙の一覧"></div></div>
-   <div class="capacity-label"><strong id="capacityText">余裕あり ♡</strong><span>10通になると、おしまい！</span></div>
+   <div class="capacity-label"><strong id="capacityText">余裕あり ♡</strong><span id="capacityRule">10通になると、おしまい！</span></div>
    <div id="capacityMeter" class="capacity-meter" aria-hidden="true"></div>
   </section>
   <section class="panel tray-panel" aria-labelledby="trayHeading">
    <div class="panel-header"><div class="panel-title" id="trayHeading"><span class="tiny art-icon art-ribbon" aria-hidden="true"></span> 仕分けトレイ</div><div style="font-size:12px;color:#75527c">3通で判定</div></div>
    <div id="tray" class="tray-grid" aria-label="古い順に並ぶ3通の手紙"></div>
    <div id="trayTip" class="tray-tip"><span class="tip-icon" aria-hidden="true">✧</span><span>手紙をタップして、トレイへ入れよう。</span></div>
+  </section>
+  <section class="bomb-panel" id="bombPanel" hidden aria-label="ボム機能">
+   <div class="bomb-head"><span>まほうの消印 <small>（ボム）</small></span><span class="bomb-count">のこり <strong id="bombCount">1</strong>個</span></div>
+   <p class="bomb-desc" id="bombDesc">場の手紙1通を好きな番号に。手番は消費しません。</p>
+   <button type="button" id="bombBtn" class="bomb-action">ボムを使って番号を変える</button>
+   <button type="button" id="cancelBomb" class="bomb-cancel" hidden>やめる</button>
   </section>
   <div id="notice" class="notice" role="status" aria-live="polite"><span class="notice-icon ghost-mark" aria-hidden="true"></span><span id="noticeText">こんやも郵便の時間だよ！</span></div>
   <div class="controls" aria-label="操作メニュー">
@@ -443,6 +478,7 @@ button:focus-visible,input:focus-visible{outline-color:#f7d15b}
 (()=>{
 'use strict';
 const STORAGE='midnight_ghost_post_v010', STATS='midnight_ghost_post_stats_v010', OPTIONS='midnight_ghost_post_options_v010';
+const STORAGE_BOMB='posupon_bomb_save_v1',STATS_BOMB='posupon_bomb_stats_v1',MODE_PREF='posupon_mode_pref_v1';
 const $=id=>document.getElementById(id);
 const symbols=['','🌷','🍋','🍀','🫧','','🌙'];
 const symbolArtwork=n=>n===5?'<span class="art-icon art-star" aria-hidden="true"></span>':symbols[n];
@@ -451,20 +487,36 @@ const defaultStats=()=>({best:0,plays:0,totalDelivered:0,totalClear:0,largestDis
 const defaultOptions=()=>({sound:false,motion:true});
 const loadJSON=(key)=>{try {return JSON.parse(localStorage.getItem(key))}catch(e){return null}};
 const saveJSON=(key,obj)=>{try{localStorage.setItem(key,JSON.stringify(obj));return true}catch(e){return false}};
-let stats={...defaultStats(),...(loadJSON(STATS)||{})};
+let gameMode=loadJSON(MODE_PREF)==='bomb'?'bomb':'classic';
+const saveKey=m=>m==='bomb'?STORAGE_BOMB:STORAGE;
+const statsKey=m=>m==='bomb'?STATS_BOMB:STATS;
+const readStats=m=>({...defaultStats(),...(loadJSON(statsKey(m))||{})});
+const currentLimit=()=>gameMode==='bomb'?9:10;
+const bombThreshold=n=>50*n*(n+1); // 100,300,600,1000...
+let stats=readStats(gameMode);
 let settings={...defaultOptions(),...(loadJSON(OPTIONS)||{})};
 let game=null,activeDialog='',audio=null,toastTimer=null,overTimer=null,lastDrawIds=[],busy=false;
-let fxTimer=null,mascotTimer=null,scoreTimer=null;
+let fxTimer=null,mascotTimer=null,scoreTimer=null,bombSelecting=false,bombTargetId=null;
 const motionAllowed=()=>settings.motion&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function initRng(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||123456789}catch(e){return (Date.now()>>>0)||123456789}}
 function rand(){let x=game.rng>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;game.rng=x>>>0;return game.rng/4294967296}
 function draw(n){lastDrawIds=[];for(let i=0;i<n;i++){const letter={id:game.nextId++,n:Math.floor(rand()*6)+1};game.board.push(letter);lastDrawIds.push(letter.id)}}
-function freshGame(){clearDeliveryFx();game={version:1,board:[],stock:[],score:0,turn:1,rng:initRng(),nextId:1,delivered:0,clears:0,largestDispatch:0,over:false,last:{type:'welcome',count:0,points:0,bonus:0}};draw(3);saveGame();render()}
-function saveGame(){if(game)saveJSON(STORAGE,game)}
+function freshGame(){clearDeliveryFx();bombSelecting=false;bombTargetId=null;game={version:1,mode:gameMode,board:[],stock:[],score:0,turn:1,rng:initRng(),nextId:1,delivered:0,clears:0,largestDispatch:0,over:false,bombs:gameMode==='bomb'?1:0,bombMilestones:0,last:{type:'welcome',count:0,points:0,bonus:0}};draw(3);saveGame();render()}
+function saveGame(){if(game)saveJSON(saveKey(gameMode),game)}
+function validModeGame(v,mode){return validGame(v)&&(mode==='classic'?v.mode===undefined||v.mode==='classic':v.mode==='bomb'&&Number.isInteger(v.bombs)&&v.bombs>=0&&Number.isInteger(v.bombMilestones)&&v.bombMilestones>=0)}
+function switchMode(mode){if(mode!=='classic'&&mode!=='bomb')return;clearDeliveryFx();bombSelecting=false;bombTargetId=null;gameMode=mode;saveJSON(MODE_PREF,mode);stats=readStats(mode);const stored=loadJSON(saveKey(mode));if(validModeGame(stored,mode)){game=stored;render();openDialog(game.over?'result':'resume')}else{freshGame();openDialog('welcome')}}
+function beginMode(mode){if(mode===gameMode){freshGame();closeDialog()}else{switchMode(mode);if(game&&game.turn===1&&game.score===0&&!game.over)closeDialog()}}
+function awardBombMilestones(){if(gameMode!=='bomb')return 0;let earned=0;while(game.score>=bombThreshold(game.bombMilestones+1)){game.bombs++;game.bombMilestones++;earned++}return earned}
+function beginBombSelection(){if(gameMode!=='bomb'||!game||game.over||game.bombs<=0||activeDialog||busy)return;bombSelecting=true;render()}
+function cancelBombSelection(){bombSelecting=false;bombTargetId=null;render()}
+function chooseBombLetter(id){if(!bombSelecting||!game.board.some(x=>x.id===id))return;bombTargetId=id;openDialog('bombTarget')}
+function applyBomb(newNumber){if(gameMode!=='bomb'||!game||game.over||game.bombs<=0||!Number.isInteger(newNumber)||newNumber<1||newNumber>6)return;const letter=game.board.find(x=>x.id===bombTargetId);if(!letter||letter.n===newNumber)return;const old=letter.n;letter.n=newNumber;game.bombs--;game.last={type:'bomb',count:0,points:0,bonus:0,old,newNumber};bombSelecting=false;bombTargetId=null;lastDrawIds=[];saveGame();closeDialog();showToast('宛先を書きかえた！',`${old}番 → ${newNumber}番　ボム残り${game.bombs}個`,1,'star')}
+
 function validGame(v){return Boolean(v&&v.version===1&&Array.isArray(v.board)&&Array.isArray(v.stock)&&v.board.length<=12&&v.stock.length<=3&&Number.isInteger(v.turn)&&v.turn>=1&&Number.isFinite(v.score)&&Number.isInteger(v.rng)&&v.rng>=0&&Number.isInteger(v.nextId)&&v.nextId>=1&&typeof v.over==='boolean'&&v.board.every(x=>Number.isInteger(x.n)&&x.n>=1&&x.n<=6&&Number.isInteger(x.id))&&v.stock.every(x=>Number.isInteger(x.n)&&x.n>=1&&x.n<=6&&Number.isInteger(x.id)))}
 function comboOf(stock){if(stock.length!==3)return null;const nums=stock.map(x=>x.n),sorted=[...nums].sort((a,b)=>a-b);if(sorted[0]===sorted[2])return {type:'same',targets:[sorted[0]-1,sorted[0]+1].filter(x=>x>=1&&x<=6)};if(sorted[1]===sorted[0]+1&&sorted[2]===sorted[1]+1)return {type:'run',targets:[sorted[0]-1,sorted[2]+1].filter(x=>x>=1&&x<=6)};return null}
 function comboDescription(com){return com?com.targets.map(x=>x+'番').join('・'):'なし'}
 function tapMail(id){if(!game||game.over||activeDialog||busy)return;
+ if(bombSelecting){chooseBombLetter(id);return;}
  const idx=game.board.findIndex(x=>x.id===id);if(idx<0)return;
  // Capture original screen positions before the board redraws. The puzzle state still changes immediately.
  const prevButtons=[...$('mailGrid').querySelectorAll('button.envelope')];
@@ -473,14 +525,15 @@ function tapMail(id){if(!game||game.over||activeDialog||busy)return;
  const selected=game.board.splice(idx,1)[0];game.stock.push(selected);if(game.stock.length>3)game.stock.shift();
  const com=comboOf(game.stock);let count=0,bonus=0,points=0,removed=[];
  if(com){removed=game.board.filter(x=>com.targets.includes(x.n));count=removed.length;game.board=game.board.filter(x=>!com.targets.includes(x.n));if(count>0){points=count*count;game.score+=points;game.delivered+=count;game.largestDispatch=Math.max(count,game.largestDispatch);if(game.board.length===0){bonus=20;game.score+=20;game.clears++}}}
- game.last={type:com?(count>0?'dispatch':'empty'):'normal',count,points,bonus,combo:com?com.type:null,targets:com?com.targets:[]};
+ const bombsGained=awardBombMilestones();
+ game.last={type:com?(count>0?'dispatch':'empty'):'normal',count,points,bonus,bombsGained,combo:com?com.type:null,targets:com?com.targets:[]};
  game.turn++;
  draw(game.board.length===0?3:2);
- if(game.board.length>=10){game.over=true;stats.plays++;stats.best=Math.max(stats.best,game.score);stats.totalDelivered+=game.delivered;stats.totalClear+=game.clears;stats.largestDispatch=Math.max(stats.largestDispatch,game.largestDispatch);saveJSON(STATS,stats)}
+ if(game.board.length>=currentLimit()){game.over=true;stats.plays++;stats.best=Math.max(stats.best,game.score);stats.totalDelivered+=game.delivered;stats.totalClear+=game.clears;stats.largestDispatch=Math.max(stats.largestDispatch,game.largestDispatch);saveJSON(statsKey(gameMode),stats)}
  saveGame();render();
  celebrateDispatch({selected,removed,oldPositions,oldElements,count,points,bonus});
  playEffect(count,bonus);
- if(count>0){const tier=dispatchTier(count,bonus);showToast(tier.top,`${count}通配達・+${points+bonus}点`,tier.level,tier.icon)}
+ if(count>0){const tier=dispatchTier(count,bonus);showToast(tier.top,`${count}通配達・+${points+bonus}点${bombsGained?'・ボム+'+bombsGained:''}`,tier.level,tier.icon)}
  if(game.over){busy=true;clearTimeout(overTimer);overTimer=setTimeout(()=>{busy=false;openDialog('result')},motionAllowed()?980:300)}
 }
 function dispatchTier(count,bonus){
@@ -569,43 +622,53 @@ function playEffect(count,bonus){if(!settings.sound)return;try{
  });
  }catch(e){} }
 function showToast(top,bottom,level=1,icon=''){const toast=$('toast');toast.className='toast tier-'+level;toast.replaceChildren();const row=document.createElement('div');row.className='toast-main';if(icon){const art=document.createElement('span');art.className='toast-icon art-icon art-'+icon;art.setAttribute('aria-hidden','true');row.append(art)}row.append(document.createTextNode(top));const b=document.createElement('small');b.textContent=bottom;toast.append(row,b);toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),motionAllowed()?1080:830)}
-function letterButton(item){const wrap=document.createElement('div');wrap.className='mail-slot';const b=document.createElement('button');b.type='button';b.className=`envelope mail-${item.n}${lastDrawIds.includes(item.id)?' is-new':''}`;b.setAttribute('aria-label',`${item.n}番 ${districts[item.n]}の手紙、仕分ける`);b.innerHTML=`<span class="mail-number">${item.n}</span><span class="seal" aria-hidden="true"></span>`;b.addEventListener('click',()=>tapMail(item.id));wrap.appendChild(b);return wrap}
+function letterButton(item){const wrap=document.createElement('div');wrap.className='mail-slot';const b=document.createElement('button');b.type='button';b.className=`envelope mail-${item.n}${lastDrawIds.includes(item.id)?' is-new':''}${bombSelecting?' bomb-candidate':''}`;b.setAttribute('aria-label',`${item.n}番 ${districts[item.n]}の手紙、${bombSelecting?'ボムで番号を変更':'仕分ける'}`);b.innerHTML=`<span class="mail-number">${item.n}</span><span class="seal" aria-hidden="true"></span>`;b.addEventListener('click',()=>tapMail(item.id));wrap.appendChild(b);return wrap}
 function render(){if(!game)return;
+ $('modeName').textContent=gameMode==='bomb'?'ボムあり':'クラシック';$('modeDetail').textContent=`${currentLimit()}通で終了` + (gameMode==='bomb'?'・宛先変更あり':'・ボムなし');
  $('score').textContent=game.score.toLocaleString('ja-JP');$('best').textContent=Math.max(stats.best,game.score).toLocaleString('ja-JP');$('turn').textContent=String(game.turn).padStart(2,'0');
- const cnt=game.board.length,counter=$('counter');counter.textContent=`${cnt} / 9 通`;counter.className='counter'+(cnt>=9?' danger':cnt>=7?' warning':'');
- $('capacityText').textContent=cnt>=10?'郵便局が満員！':cnt>=9?'いっぱい！ 次の便に注意！':cnt>=7?'そろそろピンチ…！':cnt<=3?'まだまだ余裕 ♡':'ちょっと賑やか！';
- const grid=$('mailGrid');grid.replaceChildren();for(let i=0;i<10;i++){grid.appendChild(i<cnt?letterButton(game.board[i]):Object.assign(document.createElement('div'),{className:'mail-slot emptied'}))}
- const meter=$('capacityMeter');meter.replaceChildren();for(let i=0;i<10;i++){const p=document.createElement('div');p.className='pip'+(i<cnt?' filled':'')+(i<cnt&&cnt>=7?' hot':'')+(i===9?' last':'');meter.append(p)}
+ const cnt=game.board.length,limit=currentLimit(),counter=$('counter');counter.textContent=`${cnt} / ${limit-1} 通`;counter.className='counter'+(cnt>=limit-1?' danger':cnt>=limit-3?' warning':'');
+ $('capacityRule').textContent=`${limit}通になると、おしまい！`;$('capacityText').textContent=cnt>=limit?'郵便局が満員！':cnt>=limit-1?'いっぱい！ 次の便に注意！':cnt>=limit-3?'そろそろピンチ…！':cnt<=3?'まだまだ余裕 ♡':'ちょっと賑やか！';
+ const grid=$('mailGrid');grid.replaceChildren();for(let i=0;i<limit;i++){grid.appendChild(i<cnt?letterButton(game.board[i]):Object.assign(document.createElement('div'),{className:'mail-slot emptied'}))}
+ const meter=$('capacityMeter');meter.style.gridTemplateColumns=`repeat(${limit},1fr)`;meter.replaceChildren();for(let i=0;i<limit;i++){const p=document.createElement('div');p.className='pip'+(i<cnt?' filled':'')+(i<cnt&&cnt>=limit-3?' hot':'')+(i===limit-1?' last':'');meter.append(p)}
  const tray=$('tray');tray.replaceChildren();for(let i=0;i<3;i++){const item=game.stock[i];const node=document.createElement('div');node.className='tray-slot'+(item?` filled mail-${item.n}`:'');if(item){node.innerHTML=`<span class="tray-number">${item.n}</span><span class="tray-order">${i===0?'古い':''}</span>`;node.setAttribute('aria-label',`トレイ${i+1}: ${item.n}番${i===0?' 最も古い手紙':''}`)}else{node.innerHTML='<span class="empty-plus" aria-hidden="true">＋</span>';node.setAttribute('aria-label',`トレイ${i+1}: 空き`)}tray.appendChild(node)}
  const tip=$('trayTip');const com=comboOf(game.stock);
  if(com){tip.innerHTML=`<span class="tip-icon art-icon art-star" aria-hidden="true"></span><span><strong>${com.type==='same'?'おそろい':'ならび'}検印！</strong> ${comboDescription(com)}が配達対象。</span>`}
  else if(game.stock.length<3){tip.innerHTML=`<span class="tip-icon art-icon art-ribbon" aria-hidden="true"></span><span>あと<strong>${3-game.stock.length}通</strong>で組み合わせを判定するよ。</span>`}
  else{tip.innerHTML='<span class="tip-icon" aria-hidden="true">💭</span><span>まだ検印は揃っていないよ。次の手紙を選ぼう。</span>'}
+ const panel=$('bombPanel');panel.hidden=gameMode!=='bomb';$('bombCount').textContent=gameMode==='bomb'?game.bombs:0;
+ $('bombBtn').disabled=gameMode!=='bomb'||game.over||game.bombs<=0||busy;
+ $('bombBtn').classList.toggle('active',bombSelecting);$('bombBtn').textContent=bombSelecting?'番号を変えたい手紙をタップ':'ボムを使って番号を変える';
+ $('cancelBomb').hidden=!bombSelecting;$('bombDesc').textContent=bombSelecting?'黄色く光る手紙を1通選んでください。':'場の手紙1通を好きな番号に。手番は消費しません。';
  let msg='こんやも郵便の時間だよ！',icon='ghost',mood='';let last=game.last||{};
  if(game.over){msg='あふれちゃった！ 今夜の郵便局は店じまい。';icon='postbox';mood='urgent'}
+ else if(bombSelecting){msg='変更する手紙をタップしてね。ボムはまだ消費しません。';icon='letter';mood='celebrate'}
+ else if(last.type==='bomb'){msg=`${last.old}番を${last.newNumber}番に変更！ ボム残り${game.bombs}個。`;icon='letter'}
  else if(last.type==='dispatch'){msg=`${last.count}通まとめて配達成功！ ${last.points}点${last.bonus?' ＋ 全消し20点！':''}`;icon='letter';mood='celebrate'}
  else if(last.type==='empty'){msg='検印は揃ったけど、配達先の手紙はなかったよ。';icon='letter'}
- else if(cnt>=9){msg='あと1通でも届いたら満員！ よく考えて選ぼう。';icon='skull';mood='urgent'}
- else if(cnt>=7){msg='手紙がいっぱいになってきた…！';icon='bat'}
+ else if(cnt>=limit-1){msg='あと1通でも届いたら満員！ よく考えて選ぼう。';icon='skull';mood='urgent'}
+ else if(cnt>=limit-3){msg='手紙がいっぱいになってきた…！';icon='bat'}
  else if(last.type==='normal'){msg='お手紙をトレイに入れたよ。次はどうしよう？';icon='postbox'}
  $('notice').className='notice '+mood;const iconEl=$('notice').querySelector('.notice-icon');iconEl.classList.toggle('ghost-mark',icon==='ghost');iconEl.classList.toggle('art-icon',['letter','postbox','bat','skull'].includes(icon));iconEl.classList.toggle('art-letter',icon==='letter');iconEl.classList.toggle('art-postbox',icon==='postbox');iconEl.classList.toggle('art-bat',icon==='bat');iconEl.classList.toggle('art-skull',icon==='skull');iconEl.textContent=['ghost','letter','postbox','bat','skull'].includes(icon)?'':icon;$('noticeText').textContent=msg;$('mascot').classList.toggle('worry',cnt>=8);
  [...grid.querySelectorAll('button')].forEach(b=>b.disabled=game.over||busy);
- $('restartBtn').disabled=busy;
+ $('restartBtn').disabled=busy;$('modeBtn').disabled=busy;
  document.body.classList.toggle('reduce-motion',!settings.motion);
 }
 function overlay(content){$('dialog').innerHTML=content;$('overlay').hidden=false;const focus=$('dialog').querySelector('button');if(focus)focus.focus()}
 function closeDialog(){activeDialog='';$('overlay').hidden=true;render()}
 function openDialog(name){if(busy&&name!=='result')return;activeDialog=name;
- if(name==='welcome'){overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> OPEN AT MIDNIGHT <span class="art-icon art-star" aria-hidden="true"></span></span><h2>ようこそ、<br>ポスぽん！へ！</h2><p class="lead">宛先がちょっとへんな手紙を、<br>3通の組み合わせで一斉配達。<br>手紙でいっぱいになる前に、たくさん届けてね。</p><button class="primary" id="startGame"><span class="art-icon art-star" aria-hidden="true"></span> 郵便局をひらく！</button><button class="secondary" id="howToWelcome"><span class="art-icon art-book button-art" aria-hidden="true"></span> 遊び方をみる</button><p class="small-note">遊んだ記録はこの端末のブラウザに自動保存されます。インターネット接続は必要ありません。</p>`);$('startGame').onclick=()=>{freshGame();closeDialog()};$('howToWelcome').onclick=()=>openDialog('help')}
- else if(name==='resume'){overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> おかえりなさい <span class="art-icon art-star" aria-hidden="true"></span></span><h2>郵便の続きが<br>残っているよ！</h2><p class="lead">いまの記録：<strong>${game.score}点</strong> ／ 第<strong>${game.turn}</strong>便<br>手紙が <strong>${game.board.length}通</strong> 届いています。</p><button class="primary" id="resumeGame"><span class="art-icon art-letter button-art" aria-hidden="true"></span> つづきから遊ぶ</button><button class="secondary" id="howToResume"><span class="art-icon art-book button-art" aria-hidden="true"></span> 遊び方をみる</button><button class="textbutton" id="resetFromResume"><span class="art-icon art-restart ui-symbol" aria-hidden="true"></span> はじめから遊ぶ</button>`);$('resumeGame').onclick=closeDialog;$('howToResume').onclick=()=>openDialog('help');$('resetFromResume').onclick=()=>openDialog('confirm')}
- else if(name==='help'){overlay(`<span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> POST OFFICE MANUAL <span class="art-icon art-star" aria-hidden="true"></span></span><h2>仕分けのしかた <span class="art-icon art-book heading-art" aria-hidden="true"></span></h2><p>① 毎便、届いた手紙から<strong>1通タップ</strong>してトレイへ移します。トレイは3通まで。4通目からは最も古い手紙が押し出されます。</p><p>② トレイの<strong>3通が同じ番号</strong>、または<strong>3つの連番</strong>なら、外側の番号の手紙を一斉配達します。</p><div class="explain-box"><strong><span class="art-icon art-ribbon example-art" aria-hidden="true"></span> 同じ番号（例：2・2・2）</strong><div class="example-line"><span class="ex-mail">2</span><span class="ex-mail">2</span><span class="ex-mail">2</span></div>→ <span class="target">1番と3番</span>の手紙を全部お届け！</div><div class="explain-box"><strong><span class="art-icon art-star example-art" aria-hidden="true"></span> 連続した番号（例：4・2・3）</strong><div class="example-line"><span class="ex-mail">4</span><span class="ex-mail">2</span><span class="ex-mail">3</span></div>→ <span class="target">1番と5番</span>の手紙を全部お届け！<br><span class="small-note">連番は順不同。1と6は隣接しません。</span></div><p>③ 一度に配達した手紙の数の<strong>2乗</strong>が得点。5通なら25点。場の手紙を全部配達するとさらに<strong>＋20点</strong>！</p><p>④ 手紙が残っていれば次便に<strong>2通</strong>、空っぽなら<strong>3通</strong>届きます。到着して<strong>10通以上</strong>になるとゲーム終了です。</p><p class="small-note">トレイにある番号そのものは消えません。3通の組み合わせに対応する「外側の番号」を探すのがコツです。手紙を選んで場が0通になっただけでは、全消しボーナスは付きません。</p><button class="primary" id="closeHelp"><span class="art-icon art-star" aria-hidden="true"></span> わかった！</button>`);$('closeHelp').onclick=()=>{if(game)closeDialog();else openDialog('welcome')}}
+ if(name==='welcome'){overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> OPEN AT MIDNIGHT <span class="art-icon art-star" aria-hidden="true"></span></span><h2>ようこそ、<br>ポスぽん！へ！</h2><p class="lead">宛先がちょっとへんな手紙を、<br>3通の組み合わせで一斉配達。<br>手紙でいっぱいになる前に、たくさん届けてね。</p><button class="primary" id="startGame"><span class="art-icon art-star" aria-hidden="true"></span> ${gameMode==='bomb'?'ボムありで始める':'クラシックで始める'}</button><button class="secondary" id="otherStartMode">${gameMode==='bomb'?'クラシック':'ボムあり'}で遊ぶ</button><button class="secondary" id="howToWelcome"><span class="art-icon art-book button-art" aria-hidden="true"></span> 遊び方をみる</button><p class="small-note">遊んだ記録はこの端末のブラウザに自動保存されます。インターネット接続は必要ありません。</p>`);$('startGame').onclick=()=>{freshGame();closeDialog()};$('otherStartMode').onclick=()=>beginMode(gameMode==='bomb'?'classic':'bomb');$('howToWelcome').onclick=()=>openDialog('help')}
+ else if(name==='resume'){overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> おかえりなさい <span class="art-icon art-star" aria-hidden="true"></span></span><h2>郵便の続きが<br>残っているよ！</h2><p class="mode-note">${gameMode==='bomb'?'ボムあり（9通で終了）':'クラシック（10通で終了）'}${gameMode==='bomb'?' ／ ボム残り'+game.bombs+'個':''}</p><p class="lead">いまの記録：<strong>${game.score}点</strong> ／ 第<strong>${game.turn}</strong>便<br>手紙が <strong>${game.board.length}通</strong> 届いています。</p><button class="primary" id="resumeGame"><span class="art-icon art-letter button-art" aria-hidden="true"></span> つづきから遊ぶ</button><button class="secondary" id="howToResume"><span class="art-icon art-book button-art" aria-hidden="true"></span> 遊び方をみる</button><button class="textbutton" id="resetFromResume"><span class="art-icon art-restart ui-symbol" aria-hidden="true"></span> はじめから遊ぶ</button><button class="textbutton" id="resumeModes">別のモードで遊ぶ</button>`);$('resumeGame').onclick=closeDialog;$('howToResume').onclick=()=>openDialog('help');$('resetFromResume').onclick=()=>openDialog('confirm');$('resumeModes').onclick=()=>openDialog('modePicker')}
+ else if(name==='help'){overlay(`<span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> POST OFFICE MANUAL <span class="art-icon art-star" aria-hidden="true"></span></span><h2>仕分けのしかた <span class="art-icon art-book heading-art" aria-hidden="true"></span></h2><p>① 毎便、届いた手紙から<strong>1通タップ</strong>してトレイへ移します。トレイは3通まで。4通目からは最も古い手紙が押し出されます。</p><p>② トレイの<strong>3通が同じ番号</strong>、または<strong>3つの連番</strong>なら、外側の番号の手紙を一斉配達します。</p><div class="explain-box"><strong><span class="art-icon art-ribbon example-art" aria-hidden="true"></span> 同じ番号（例：2・2・2）</strong><div class="example-line"><span class="ex-mail">2</span><span class="ex-mail">2</span><span class="ex-mail">2</span></div>→ <span class="target">1番と3番</span>の手紙を全部お届け！</div><div class="explain-box"><strong><span class="art-icon art-star example-art" aria-hidden="true"></span> 連続した番号（例：4・2・3）</strong><div class="example-line"><span class="ex-mail">4</span><span class="ex-mail">2</span><span class="ex-mail">3</span></div>→ <span class="target">1番と5番</span>の手紙を全部お届け！<br><span class="small-note">連番は順不同。1と6は隣接しません。</span></div><p>③ 一度に配達した手紙の数の<strong>2乗</strong>が得点。5通なら25点。場の手紙を全部配達するとさらに<strong>＋20点</strong>！</p><p>④ 手紙が残っていれば次便に<strong>2通</strong>、空っぽなら<strong>3通</strong>届きます。到着して<strong>${currentLimit()}通以上</strong>になるとゲーム終了です。</p>${gameMode==='bomb'?`<p><strong>まほうの消印（ボム）</strong>：初期1個。場の手紙1通の番号を1〜6に変更できます。手番を使わず1ターンに何個でも使用可能。100点、300点、600点、1000点…に初めて到達するたび＋1個。選んでいる途中のキャンセルでは消費しません。9通に到達すると終了です。</p>`:''}<p class="small-note">トレイにある番号そのものは消えません。3通の組み合わせに対応する「外側の番号」を探すのがコツです。手紙を選んで場が0通になっただけでは、全消しボーナスは付きません。</p><button class="primary" id="closeHelp"><span class="art-icon art-star" aria-hidden="true"></span> わかった！</button>`);$('closeHelp').onclick=()=>{if(game)closeDialog();else openDialog('welcome')}}
  else if(name==='settings'){overlay(`<span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> OPTIONS <span class="art-icon art-star" aria-hidden="true"></span></span><h2>郵便局の設定 <span class="art-icon art-settings ui-symbol" aria-hidden="true"></span></h2><div class="settings-line"><span class="settings-label"><span class="art-icon art-sound ui-symbol" aria-hidden="true"></span> 効果音</span><button class="switch ${settings.sound?'on':''}" id="toggleSound" type="button" aria-pressed="${settings.sound}">${settings.sound?'ON':'OFF'}</button></div><div class="settings-line"><span><span class="art-icon art-star" aria-hidden="true"></span> ふわふわアニメーション</span><button class="switch ${settings.motion?'on':''}" id="toggleMotion" type="button" aria-pressed="${settings.motion}">${settings.motion?'ON':'OFF'}</button></div><p class="small-note">配達が多いほど、スタンプ・おばけ局員・短いチャイムが賑やかになります。演出をOFFにすると動きを抑えられます。効果音は最初OFFです。</p><button class="primary" id="closeSettings">もどる</button>`);$('toggleSound').onclick=()=>{settings.sound=!settings.sound;saveJSON(OPTIONS,settings);openDialog('settings');if(settings.sound)playEffect(1,0)};$('toggleMotion').onclick=()=>{settings.motion=!settings.motion;saveJSON(OPTIONS,settings);openDialog('settings');document.body.classList.toggle('reduce-motion',!settings.motion)};$('closeSettings').onclick=closeDialog}
+ else if(name==='modePicker'){const other=gameMode==='bomb'?'classic':'bomb';const otherSaved=loadJSON(saveKey(other));const otherStats=readStats(other);overlay(`<div class="dialog-logo" role="img" aria-label="ポスぽん！"></div><span class="tag">PLAY MODE</span><h2>遊ぶモードを選ぼう</h2><p class="lead">今のモードの途中セーブは消さずに切り替えできます。最高スコアもモード別に保存します。</p><button class="mode-choice" id="modeClassic"><strong>クラシック　10通で終了</strong><small>ボムなし。いつもの仕分けパズル。${gameMode==='classic'?'［現在］':''}</small></button><button class="mode-choice bomb-choice" id="modeBomb"><strong>ボムあり　9通で終了</strong><small>初期ボム1個／100・300・600点…で追加。${gameMode==='bomb'?'［現在］':''}</small></button><p class="mode-note">別モードの記録：最高 ${otherStats.best}点${validModeGame(otherSaved,other)?'／途中セーブあり':''}</p><button class="secondary" id="cancelMode">もどる</button>`);$('modeClassic').onclick=()=>gameMode==='classic'?closeDialog():switchMode('classic');$('modeBomb').onclick=()=>gameMode==='bomb'?closeDialog():switchMode('bomb');$('cancelMode').onclick=closeDialog}
+ else if(name==='bombTarget'){const item=game&&game.board.find(x=>x.id===bombTargetId);if(!item){bombTargetId=null;closeDialog();return}overlay(`<span class="tag">まほうの消印</span><h2>何番に書きかえる？</h2><p class="lead"><strong>${item.n}番</strong>の手紙を変更します。確定するまでボムは消費しません。</p><div class="bomb-choices">${[1,2,3,4,5,6].map(n=>`<button class="mail-${n}" data-bomb-to="${n}" ${item.n===n?'disabled':''} aria-label="${n}番に変更">${n}</button>`).join('')}</div><p class="mode-note">のこりボム ${game.bombs}個 ／ 手番は進みません。</p><button class="secondary" id="cancelBombChoice">キャンセル</button>`);$('dialog').querySelectorAll('[data-bomb-to]').forEach(b=>b.onclick=()=>applyBomb(Number(b.dataset.bombTo)));$('cancelBombChoice').onclick=()=>{bombTargetId=null;closeDialog()}}
  else if(name==='confirm'){overlay(`<div class="decoration"><span aria-hidden="true">💭</span><span class="ghost-mark dialogue-ghost" aria-hidden="true"></span></div><h2>最初から遊ぶ？</h2><p class="lead">今の郵便局の進行状況は消えるよ。<br>過去のベストスコアは残ります。</p><button class="primary" id="yesRestart"><span class="art-icon art-restart ui-symbol" aria-hidden="true"></span> 最初から遊ぶ</button><button class="secondary" id="noRestart">やっぱり戻る</button>`);$('yesRestart').onclick=()=>{freshGame();closeDialog()};$('noRestart').onclick=()=>{if(game)closeDialog();else openDialog('welcome')}}
- else if(name==='result'){const newBest=game.score>0&&game.score>=stats.best;overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> GOOD NIGHT, POST OFFICE <span class="art-icon art-star" aria-hidden="true"></span></span><h2>こんやも、おつかれさま！</h2><p class="lead">手紙がいっぱいになったので、<br>郵便局はちょっと早めの店じまい。</p><div class="result-numbers"><div><small><span class="art-icon art-star" aria-hidden="true"></span> 今回のスコア</small><b>${game.score.toLocaleString('ja-JP')}</b></div><div><small><span class="art-icon art-star" aria-hidden="true"></span> 最高スコア</small><b>${stats.best.toLocaleString('ja-JP')}</b></div><div><small><span class="art-icon art-postbox stat-art" aria-hidden="true"></span> お届けした手紙</small><b>${game.delivered}通</b></div><div><small><span class="art-icon art-rainbow" aria-hidden="true"></span> 全消し回数</small><b>${game.clears}回</b></div></div>${newBest?'<p class="new-best-message"><span class="art-icon art-cracker" aria-hidden="true"></span><span>ベストスコア達成！</span></p>':''}<button class="primary" id="playAgain"><span class="art-icon art-star" aria-hidden="true"></span> もう一晩、仕分けする</button><button class="secondary" id="resultHelp"><span class="art-icon art-book button-art" aria-hidden="true"></span> ルールを確認する</button>`);$('playAgain').onclick=()=>{freshGame();closeDialog()};$('resultHelp').onclick=()=>openDialog('help')}
+ else if(name==='result'){const newBest=game.score>0&&game.score>=stats.best;overlay(`<div class="dialog-logo hero" role="img" aria-label="ポスぽん！"></div><span class="tag"><span class="art-icon art-star" aria-hidden="true"></span> GOOD NIGHT, POST OFFICE <span class="art-icon art-star" aria-hidden="true"></span></span><h2>こんやも、おつかれさま！</h2><p class="mode-note">${gameMode==='bomb'?'ボムあり（9通で終了）':'クラシック（10通で終了）'}</p><p class="lead">手紙がいっぱいになったので、<br>郵便局はちょっと早めの店じまい。</p><div class="result-numbers"><div><small><span class="art-icon art-star" aria-hidden="true"></span> 今回のスコア</small><b>${game.score.toLocaleString('ja-JP')}</b></div><div><small><span class="art-icon art-star" aria-hidden="true"></span> 最高スコア</small><b>${stats.best.toLocaleString('ja-JP')}</b></div><div><small><span class="art-icon art-postbox stat-art" aria-hidden="true"></span> お届けした手紙</small><b>${game.delivered}通</b></div><div><small><span class="art-icon art-rainbow" aria-hidden="true"></span> 全消し回数</small><b>${game.clears}回</b></div></div>${newBest?'<p class="new-best-message"><span class="art-icon art-cracker" aria-hidden="true"></span><span>ベストスコア達成！</span></p>':''}<button class="primary" id="playAgain"><span class="art-icon art-star" aria-hidden="true"></span> もう一晩、仕分けする</button><button class="secondary" id="resultHelp"><span class="art-icon art-book button-art" aria-hidden="true"></span> ルールを確認する</button><button class="textbutton" id="resultModes">別のモードで遊ぶ</button>`);$('playAgain').onclick=()=>{freshGame();closeDialog()};$('resultHelp').onclick=()=>openDialog('help');$('resultModes').onclick=()=>openDialog('modePicker')}
 }
 $('helpBtn').onclick=()=>openDialog('help');$('settingsBtn').onclick=()=>openDialog('settings');$('restartBtn').onclick=()=>openDialog('confirm');
-const saved=loadJSON(STORAGE);
-if(validGame(saved)){game=saved;lastDrawIds=[];render();openDialog(game.over?'result':'resume')}else{freshGame();openDialog('welcome')}
+$('modeBtn').onclick=()=>openDialog('modePicker');$('bombBtn').onclick=beginBombSelection;$('cancelBomb').onclick=cancelBombSelection;
+const saved=loadJSON(saveKey(gameMode));
+if(validModeGame(saved,gameMode)){game=saved;lastDrawIds=[];render();openDialog(game.over?'result':'resume')}else{freshGame();openDialog('welcome')}
 })();
 </script>
 </body>
