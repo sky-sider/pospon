@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#251c43">
 <meta name="description" content="今夜もヘンテコな手紙が届く、かわいくて少し不思議な仕分けパズル。オフラインで遊べます。">
-<title>ポスぽん！ v0.4.0｜POSUPON!</title>
+<title>ポスぽん！ v0.4.1｜POSUPON!</title>
 <style>
 :root{
  --ink:#2a2145;--ink2:#4b3966;--night:#221a3d;--pink:#ff67aa;--lime:#b9f36b;
@@ -423,6 +423,41 @@ button:focus-visible,input:focus-visible{outline-color:#f7d15b}
 .mode-choice:disabled{opacity:.65}
 .dialog .mode-note{font-size:12px;color:#5f516e;margin:5px 0 10px;line-height:1.6}
 @media(max-width:354px){.mode-banner{font-size:11px}.bomb-panel{padding:10px}.bomb-action{font-size:13px}}
+
+/* v0.4.1 — Only the bomb-selected letter flips its old number to the new one.
+   No extra delay, score change, particles or sound. */
+.envelope.bomb-number-flip .mail-number{
+  animation:postmark-number-in .32s ease-out both;
+  transform-origin:50% 50%;
+  backface-visibility:hidden;
+}
+.envelope .bomb-old-number{
+  position:absolute;inset:0;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:1000;font-size:clamp(27px,8.7vw,38px);line-height:1.05;
+  color:#241935;text-shadow:1px 2px 0 rgba(255,255,255,.6);
+  font-variant-numeric:tabular-nums;pointer-events:none;
+  animation:postmark-number-out .32s ease-in both;
+  transform-origin:50% 50%;backface-visibility:hidden;
+}
+@keyframes postmark-number-out{
+  0%,9%{transform:perspective(260px) rotateY(0deg);opacity:1}
+  47%,100%{transform:perspective(260px) rotateY(-90deg);opacity:0}
+}
+@keyframes postmark-number-in{
+  0%,46%{transform:perspective(260px) rotateY(90deg);opacity:0}
+  53%{opacity:1}
+  100%{transform:perspective(260px) rotateY(0deg);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .envelope.bomb-number-flip .mail-number,
+  .envelope .bomb-old-number{animation:none!important}
+  .envelope .bomb-old-number{display:none!important}
+}
+body.reduce-motion .envelope.bomb-number-flip .mail-number,
+body.reduce-motion .envelope .bomb-old-number{animation:none!important}
+body.reduce-motion .envelope .bomb-old-number{display:none!important}
+
 </style>
 </head>
 <body>
@@ -496,7 +531,7 @@ const bombThreshold=n=>50*n*(n+1); // 100,300,600,1000...
 let stats=readStats(gameMode);
 let settings={...defaultOptions(),...(loadJSON(OPTIONS)||{})};
 let game=null,activeDialog='',audio=null,toastTimer=null,overTimer=null,lastDrawIds=[],busy=false;
-let fxTimer=null,mascotTimer=null,scoreTimer=null,bombSelecting=false,bombTargetId=null;
+let fxTimer=null,mascotTimer=null,scoreTimer=null,bombSelecting=false,bombTargetId=null,bombFlip=null;
 const motionAllowed=()=>settings.motion&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function initRng(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||123456789}catch(e){return (Date.now()>>>0)||123456789}}
 function rand(){let x=game.rng>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;game.rng=x>>>0;return game.rng/4294967296}
@@ -510,7 +545,7 @@ function awardBombMilestones(){if(gameMode!=='bomb')return 0;let earned=0;while(
 function beginBombSelection(){if(gameMode!=='bomb'||!game||game.over||game.bombs<=0||activeDialog||busy)return;bombSelecting=true;render()}
 function cancelBombSelection(){bombSelecting=false;bombTargetId=null;render()}
 function chooseBombLetter(id){if(!bombSelecting||!game.board.some(x=>x.id===id))return;bombTargetId=id;openDialog('bombTarget')}
-function applyBomb(newNumber){if(gameMode!=='bomb'||!game||game.over||game.bombs<=0||!Number.isInteger(newNumber)||newNumber<1||newNumber>6)return;const letter=game.board.find(x=>x.id===bombTargetId);if(!letter||letter.n===newNumber)return;const old=letter.n;letter.n=newNumber;game.bombs--;game.last={type:'bomb',count:0,points:0,bonus:0,old,newNumber};bombSelecting=false;bombTargetId=null;lastDrawIds=[];saveGame();closeDialog();showToast('宛先を書きかえた！',`${old}番 → ${newNumber}番　ボム残り${game.bombs}個`,1,'star')}
+function applyBomb(newNumber){if(gameMode!=='bomb'||!game||game.over||game.bombs<=0||!Number.isInteger(newNumber)||newNumber<1||newNumber>6)return;const letter=game.board.find(x=>x.id===bombTargetId);if(!letter||letter.n===newNumber)return;const old=letter.n;letter.n=newNumber;game.bombs--;game.last={type:'bomb',count:0,points:0,bonus:0,old,newNumber};bombSelecting=false;bombTargetId=null;lastDrawIds=[];bombFlip=motionAllowed()?{id:letter.id,old}:null;saveGame();closeDialog();bombFlip=null;showToast('宛先を書きかえた！',`${old}番 → ${newNumber}番　ボム残り${game.bombs}個`,1,'star')}
 
 function validGame(v){return Boolean(v&&v.version===1&&Array.isArray(v.board)&&Array.isArray(v.stock)&&v.board.length<=12&&v.stock.length<=3&&Number.isInteger(v.turn)&&v.turn>=1&&Number.isFinite(v.score)&&Number.isInteger(v.rng)&&v.rng>=0&&Number.isInteger(v.nextId)&&v.nextId>=1&&typeof v.over==='boolean'&&v.board.every(x=>Number.isInteger(x.n)&&x.n>=1&&x.n<=6&&Number.isInteger(x.id))&&v.stock.every(x=>Number.isInteger(x.n)&&x.n>=1&&x.n<=6&&Number.isInteger(x.id)))}
 function comboOf(stock){if(stock.length!==3)return null;const nums=stock.map(x=>x.n),sorted=[...nums].sort((a,b)=>a-b);if(sorted[0]===sorted[2])return {type:'same',targets:[sorted[0]-1,sorted[0]+1].filter(x=>x>=1&&x<=6)};if(sorted[1]===sorted[0]+1&&sorted[2]===sorted[1]+1)return {type:'run',targets:[sorted[0]-1,sorted[2]+1].filter(x=>x>=1&&x<=6)};return null}
@@ -622,7 +657,10 @@ function playEffect(count,bonus){if(!settings.sound)return;try{
  });
  }catch(e){} }
 function showToast(top,bottom,level=1,icon=''){const toast=$('toast');toast.className='toast tier-'+level;toast.replaceChildren();const row=document.createElement('div');row.className='toast-main';if(icon){const art=document.createElement('span');art.className='toast-icon art-icon art-'+icon;art.setAttribute('aria-hidden','true');row.append(art)}row.append(document.createTextNode(top));const b=document.createElement('small');b.textContent=bottom;toast.append(row,b);toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),motionAllowed()?1080:830)}
-function letterButton(item){const wrap=document.createElement('div');wrap.className='mail-slot';const b=document.createElement('button');b.type='button';b.className=`envelope mail-${item.n}${lastDrawIds.includes(item.id)?' is-new':''}${bombSelecting?' bomb-candidate':''}`;b.setAttribute('aria-label',`${item.n}番 ${districts[item.n]}の手紙、${bombSelecting?'ボムで番号を変更':'仕分ける'}`);b.innerHTML=`<span class="mail-number">${item.n}</span><span class="seal" aria-hidden="true"></span>`;b.addEventListener('click',()=>tapMail(item.id));wrap.appendChild(b);return wrap}
+function letterButton(item){const wrap=document.createElement('div');wrap.className='mail-slot';const b=document.createElement('button');b.type='button';b.className=`envelope mail-${item.n}${lastDrawIds.includes(item.id)?' is-new':''}${bombSelecting?' bomb-candidate':''}`;b.setAttribute('aria-label',`${item.n}番 ${districts[item.n]}の手紙、${bombSelecting?'ボムで番号を変更':'仕分ける'}`);const flipping=bombFlip&&bombFlip.id===item.id;
+ if(flipping)b.classList.add('bomb-number-flip');
+ b.innerHTML=`<span class="mail-number">${item.n}</span><span class="seal" aria-hidden="true"></span>${flipping?`<span class="bomb-old-number" aria-hidden="true">${bombFlip.old}</span>`:''}`;
+ b.addEventListener('click',()=>tapMail(item.id));wrap.appendChild(b);return wrap}
 function render(){if(!game)return;
  $('modeName').textContent=gameMode==='bomb'?'ボムあり':'クラシック';$('modeDetail').textContent=`${currentLimit()}通で終了` + (gameMode==='bomb'?'・宛先変更あり':'・ボムなし');
  $('score').textContent=game.score.toLocaleString('ja-JP');$('best').textContent=Math.max(stats.best,game.score).toLocaleString('ja-JP');$('turn').textContent=String(game.turn).padStart(2,'0');
